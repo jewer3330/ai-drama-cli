@@ -1,0 +1,170 @@
+{
+  "name": "DramaCLI ComfyUI Short-Drama Plugin Stack",
+  "profiles": [
+    "core",
+    "image",
+    "video",
+    "pro",
+    "all"
+  ],
+  "plugins": [
+    {
+      "slug": "manager",
+      "name": "ComfyUI Manager",
+      "repo": "https://github.com/Comfy-Org/ComfyUI-Manager",
+      "category": "ops",
+      "profile": [
+        "core",
+        "pro",
+        "all"
+      ],
+      "why": "Install, update, disable, and repair custom nodes from inside ComfyUI.",
+      "notes": "Install this first. It is the safest long-term plugin management path.",
+      "models": []
+    },
+    {
+      "slug": "impact-pack",
+      "name": "ComfyUI Impact Pack",
+      "repo": "https://github.com/ltdrdata/ComfyUI-Impact-Pack",
+      "category": "image",
+      "profile": [
+        "core",
+        "image",
+        "pro",
+        "all"
+      ],
+      "why": "Detector, detailer, upscaler, pipe helpers, and face/detail polish.",
+      "notes": "Great for poster covers, close-ups, and fixing key character shots.",
+      "models": []
+    },
+    {
+      "slug": "controlnet-aux",
+      "name": "ControlNet Auxiliary Preprocessors",
+      "repo": "https://github.com/Fannovel16/comfyui_controlnet_aux",
+      "category": "image",
+      "profile": [
+        "core",
+        "image",
+        "pro",
+        "all"
+      ],
+      "why": "Pose, depth, lineart, and edge preprocessors for directed scenes.",
+      "notes": "Use for shot blocking, actor pose control, and repeatable scene layouts.",
+      "models": []
+    },
+    {
+      "slug": "ipadapter-plus",
+      "name": "ComfyUI IPAdapter Plus",
+      "repo": "https://github.com/cubiq/ComfyUI_IPAdapter_plus",
+      "category": "identity",
+      "profile": [
+        "core",
+        "image",
+        "pro",
+        "all"
+      ],
+      "why": "Reference-image conditioning for character identity and visual style.",
+      "notes": "Repository is maintenance-only, but still valuable for SDXL identity workflows.",
+      "models": [
+        "models/clip_vision",
+        "models/ipadapter"
+      ]
+    },
+    {
+      "slug": "video-helper-suite",
+      "name": "Video Helper Suite",
+      "repo": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite",
+      "category": "video",
+      "profile": [
+        "video",
+        "pro",
+        "all"
+      ],
+      "why": "Load, batch, combine, preview, and export image sequences as video.",
+      "notes": "The backbone for image-sequence based drama rendering.",
+      "models": []
+    },
+    {
+      "slug": "animatediff-evolved",
+      "name": "AnimateDiff Evolved",
+      "repo": "https://github.com/Kosinkadink/ComfyUI-AnimateDiff-Evolved",
+      "category": "video",
+      "profile": [
+        "video",
+        "pro",
+        "all"
+      ],
+      "why": "Advanced AnimateDiff motion workflows and sampling support.",
+      "notes": "Use for stylized short motion, teaser loops, and low-cost scene movement.",
+      "models": []
+    },
+    {
+      "slug": "wan-video-wrapper",
+      "name": "WanVideoWrapper",
+      "repo": "https://github.com/kijai/ComfyUI-WanVideoWrapper",
+      "category": "video",
+      "profile": [
+        "video",
+        "pro",
+        "all"
+      ],
+      "why": "Wan video generation wrapper for higher-end image/video-to-video scenes.",
+      "notes": "GPU and model requirements are heavier; keep it in the pro profile.",
+      "models": []
+    },
+    {
+      "slug": "frame-interpolation",
+      "name": "Frame Interpolation",
+      "repo": "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation",
+      "category": "video",
+      "profile": [
+        "video",
+        "pro",
+        "all"
+      ],
+      "why": "RIFE, FILM, AMT, and related VFI nodes for smoother final shots.",
+      "notes": "Useful after AnimateDiff or Wan output, especially for vertical drama exports.",
+      "models": []
+    },
+    {
+      "slug": "ultimate-sd-upscale",
+      "name": "Ultimate SD Upscale",
+      "repo": "https://github.com/ssitu/ComfyUI_UltimateSDUpscale",
+      "category": "finish",
+      "profile": [
+        "image",
+        "pro",
+        "all"
+      ],
+      "why": "Tile-based upscale for posters, covers, and hero frames.",
+      "notes": "Pair with Impact Pack detailers for final delivery frames.",
+      "models": []
+    },
+    {
+      "slug": "custom-scripts",
+      "name": "ComfyUI Custom Scripts",
+      "repo": "https://github.com/pythongosssss/ComfyUI-Custom-Scripts",
+      "category": "ux",
+      "profile": [
+        "pro",
+        "all"
+      ],
+      "why": "Workflow UI improvements for faster daily production.",
+      "notes": "Quality-of-life plugin, not required for render correctness.",
+      "models": []
+    },
+    {
+      "slug": "was-node-suite",
+      "name": "WAS Node Suite",
+      "repo": "https://github.com/WASasquatch/was-node-suite-comfyui",
+      "category": "utility",
+      "profile": [
+        "pro",
+        "all"
+      ],
+      "why": "Large utility node set for text, image, mask, and file operations.",
+      "notes": "Powerful but broad; install after the core stack is stable.",
+      "models": []
+    }
+  ]
+}

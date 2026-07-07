@@ -1,0 +1,62 @@
+{
+  "client_id": "drama-cli-anime-test",
+  "prompt": {
+    "3": {
+      "class_type": "KSampler",
+      "inputs": {
+        "seed": 26070701,
+        "steps": 8,
+        "cfg": 6.5,
+        "sampler_name": "euler",
+        "scheduler": "normal",
+        "denoise": 1.0,
+        "model": ["4", 0],
+        "positive": ["6", 0],
+        "negative": ["7", 0],
+        "latent_image": ["5", 0]
+      }
+    },
+    "4": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "Counterfeit-V3.0_fix_fp16.safetensors"
+      }
+    },
+    "5": {
+      "class_type": "EmptyLatentImage",
+      "inputs": {
+        "width": 384,
+        "height": 512,
+        "batch_size": 1
+      }
+    },
+    "6": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "masterpiece, best quality, anime key visual, japanese anime drama heroine, expressive eyes, black sailor uniform, rainy tokyo street at night, cinematic lighting, emotional scene, detailed background, clean line art",
+        "clip": ["4", 1]
+      }
+    },
+    "7": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "low quality, worst quality, blurry, bad anatomy, bad hands, extra fingers, missing fingers, watermark, logo, text, jpeg artifacts, deformed face",
+        "clip": ["4", 1]
+      }
+    },
+    "8": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": ["3", 0],
+        "vae": ["4", 2]
+      }
+    },
+    "9": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "filename_prefix": "drama_anime_test",
+        "images": ["8", 0]
+      }
+    }
+  }
+}

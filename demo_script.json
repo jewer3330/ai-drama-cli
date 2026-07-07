@@ -1,0 +1,291 @@
+{
+  "title": "总裁的契约新娘",
+  "genre": "都市甜宠",
+  "description": "为救母亲，她签下契约成为他的新娘。殊不知，他等这一天已经等了十年。",
+  "characters": [
+    {
+      "name": "顾北辰",
+      "role": "男主角",
+      "gender": "男",
+      "age": 28,
+      "personality": "冷酷霸道、深情专一",
+      "voice_style": "霸气",
+      "description": "顾氏集团总裁，商界传奇"
+    },
+    {
+      "name": "苏晚晴",
+      "role": "女主角",
+      "gender": "女",
+      "age": 23,
+      "personality": "坚强独立、善良温柔",
+      "voice_style": "温柔",
+      "description": "普通上班族，为救母亲签下契约"
+    },
+    {
+      "name": "林秘书",
+      "role": "配角",
+      "gender": "女",
+      "age": 26,
+      "personality": "干练精明",
+      "voice_style": "活泼",
+      "description": "顾北辰的私人秘书"
+    },
+    {
+      "name": "苏母",
+      "role": "配角",
+      "gender": "女",
+      "age": 55,
+      "personality": "慈祥温和",
+      "voice_style": "温柔",
+      "description": "苏晚晴的母亲，身患重病"
+    }
+  ],
+  "episodes": [
+    {
+      "episode_number": 1,
+      "title": "签下契约",
+      "scenes": [
+        {
+          "scene_number": 1,
+          "location": "医院病房",
+          "time": "傍晚",
+          "visual_description": "夕阳透过病房窗户洒在白色的病床上，苏晚晴坐在床边握着母亲的手，神情憔悴。",
+          "dialogues": [
+            {
+              "character": "苏母",
+              "line": "晴晴，别管我了，妈妈的病治不好的……",
+              "emotion": "虚弱",
+              "action": "吃力地抬起手"
+            },
+            {
+              "character": "苏晚晴",
+              "line": "妈，你说什么呢！我一定会凑够手术费的。",
+              "emotion": "坚定",
+              "action": "紧紧握住母亲的手"
+            }
+          ]
+        },
+        {
+          "scene_number": 2,
+          "location": "顾氏集团总裁办公室",
+          "time": "夜晚",
+          "visual_description": "豪华的办公室内，落地窗外是城市璀璨的夜景，顾北辰坐在真皮椅上翻看文件。",
+          "dialogues": [
+            {
+              "character": "林秘书",
+              "line": "顾总，苏小姐来了。",
+              "emotion": "报告",
+              "action": "推门进入"
+            },
+            {
+              "character": "顾北辰",
+              "line": "让她进来。",
+              "emotion": "冷淡",
+              "action": "头也不抬"
+            },
+            {
+              "character": "苏晚晴",
+              "line": "顾先生，我……我愿意签。",
+              "emotion": "紧张",
+              "action": "咬着嘴唇，双手紧握"
+            }
+          ]
+        },
+        {
+          "scene_number": 3,
+          "location": "顾氏集团总裁办公室",
+          "time": "夜晚",
+          "visual_description": "顾北辰站起身，缓缓走向苏晚晴，眼神锐利。",
+          "dialogues": [
+            {
+              "character": "顾北辰",
+              "line": "三年契约婚姻，换你母亲的手术费。你确定？",
+              "emotion": "冷漠",
+              "action": "居高临下地看着她"
+            },
+            {
+              "character": "苏晚晴",
+              "line": "我确定。",
+              "emotion": "决绝",
+              "action": "抬起头，直视他的眼睛"
+            },
+            {
+              "character": "顾北辰",
+              "line": "很好。从今天起，你就是顾太太了。",
+              "emotion": "意味深长",
+              "action": "嘴角微微上扬，递过一张支票"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "episode_number": 2,
+      "title": "他的秘密",
+      "scenes": [
+        {
+          "scene_number": 1,
+          "location": "顾家别墅客厅",
+          "time": "清晨",
+          "visual_description": "阳光洒进奢华的别墅客厅，苏晚晴穿着睡衣下楼，顾北辰已经在餐桌前看报纸。",
+          "dialogues": [
+            {
+              "character": "顾北辰",
+              "line": "醒了？吃早餐。",
+              "emotion": "平淡",
+              "action": "放下报纸，指了指对面的位置"
+            },
+            {
+              "character": "苏晚晴",
+              "line": "你……你还会给我做早餐？",
+              "emotion": "惊讶",
+              "action": "看着桌上丰盛的早餐"
+            },
+            {
+              "character": "顾北辰",
+              "line": "我顾北辰的女人，不能饿着。",
+              "emotion": "霸道",
+              "action": "语气不容置疑"
+            }
+          ]
+        },
+        {
+          "scene_number": 2,
+          "location": "顾北辰书房",
+          "time": "下午",
+          "visual_description": "苏晚晴无意间走进书房，发现墙上挂着一张泛黄的照片——十年前的她和顾北辰在同框。",
+          "dialogues": [
+            {
+              "character": "苏晚晴",
+              "line": "这张照片……怎么会？",
+              "emotion": "震惊",
+              "action": "颤抖着走近看"
+            },
+            {
+              "character": "顾北辰",
+              "line": "你看到了？",
+              "emotion": "低沉",
+              "action": "突然出现在她身后"
+            },
+            {
+              "character": "苏晚晴",
+              "line": "十年前……那个雨夜送我去医院的人，是你？",
+              "emotion": "难以置信",
+              "action": "转身看着他，眼眶泛红"
+            }
+          ]
+        },
+        {
+          "scene_number": 3,
+          "location": "顾北辰书房",
+          "time": "下午",
+          "visual_description": "夕阳透过窗帘，两人四目相对，空气中弥漫着复杂的情感。",
+          "dialogues": [
+            {
+              "character": "顾北辰",
+              "line": "苏晚晴，我找了你十年。这契约，是我唯一能让你留在我身边的方式。",
+              "emotion": "深情",
+              "action": "缓缓靠近，伸手轻抚她的脸"
+            },
+            {
+              "character": "苏晚晴",
+              "line": "你……你是认真的？",
+              "emotion": "哽咽",
+              "action": "泪水滑落"
+            },
+            {
+              "character": "顾北辰",
+              "line": "我这辈子，只对你一个人认真。",
+              "emotion": "温柔",
+              "action": "将她拥入怀中"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "episode_number": 3,
+      "title": "契约之外的真心",
+      "scenes": [
+        {
+          "scene_number": 1,
+          "location": "医院VIP病房",
+          "time": "上午",
+          "visual_description": "苏母刚做完手术，躺在病床上，气色好了很多。苏晚晴和顾北辰一起走进来。",
+          "dialogues": [
+            {
+              "character": "苏母",
+              "line": "晴晴，这位是……",
+              "emotion": "疑惑",
+              "action": "看着英俊的顾北辰"
+            },
+            {
+              "character": "苏晚晴",
+              "line": "妈，他是……我老公。",
+              "emotion": "害羞",
+              "action": "脸红着低下头"
+            },
+            {
+              "character": "顾北辰",
+              "line": "妈，您好好养病。以后有我在，不会再让晴晴受委屈了。",
+              "emotion": "真诚",
+              "action": "握住苏晚晴的手，郑重地对苏母说"
+            }
+          ]
+        },
+        {
+          "scene_number": 2,
+          "location": "医院天台",
+          "time": "傍晚",
+          "visual_description": "晚霞满天，城市的天际线被染成金色。顾北辰和苏晚晴并肩站在天台上。",
+          "dialogues": [
+            {
+              "character": "苏晚晴",
+              "line": "顾北辰，谢谢你。契约的事……",
+              "emotion": "感激",
+              "action": "欲言又止"
+            },
+            {
+              "character": "顾北辰",
+              "line": "你以为我让你签契约，真的是为了这个？",
+              "emotion": "认真",
+              "action": "打断她的话"
+            },
+            {
+              "character": "苏晚晴",
+              "line": "难道不是？",
+              "emotion": "困惑",
+              "action": "抬头看着他"
+            }
+          ]
+        },
+        {
+          "scene_number": 3,
+          "location": "医院天台",
+          "time": "傍晚",
+          "visual_description": "夕阳下，顾北辰单膝跪地，从口袋里掏出一枚闪耀的戒指。",
+          "dialogues": [
+            {
+              "character": "顾北辰",
+              "line": "苏晚晴，契约是假的，但我的心是真的。嫁给我，不是契约，是真心。",
+              "emotion": "深情",
+              "action": "单膝跪地，举起戒指"
+            },
+            {
+              "character": "苏晚晴",
+              "line": "我愿意！",
+              "emotion": "幸福",
+              "action": "泪流满面地点头"
+            },
+            {
+              "character": "顾北辰",
+              "line": "我的顾太太，这一次，是一辈子。",
+              "emotion": "宠溺",
+              "action": "为她戴上戒指，站起来紧紧抱住她"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

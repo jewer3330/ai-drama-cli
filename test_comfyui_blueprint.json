@@ -1,0 +1,70 @@
+{
+  "name": "ai_short_drama_comfyui_pro_pipeline",
+  "version": "1.0",
+  "target": "9:16 short drama production",
+  "stages": [
+    {
+      "stage": "character_bible",
+      "goal": "Lock hero, heroine, antagonist, and supporting-role identity.",
+      "plugins": [
+        "ComfyUI IPAdapter Plus",
+        "ComfyUI Impact Pack"
+      ],
+      "outputs": [
+        "character reference portraits",
+        "face detail pass"
+      ]
+    },
+    {
+      "stage": "shot_design",
+      "goal": "Convert script scenes into controlled vertical compositions.",
+      "plugins": [
+        "ControlNet Auxiliary Preprocessors"
+      ],
+      "outputs": [
+        "pose/depth/lineart controls",
+        "scene prompt pack"
+      ]
+    },
+    {
+      "stage": "scene_generation",
+      "goal": "Generate consistent keyframes for every episode scene.",
+      "plugins": [
+        "ComfyUI Impact Pack",
+        "Ultimate SD Upscale"
+      ],
+      "outputs": [
+        "cover frame",
+        "scene keyframes",
+        "detail/upscale variants"
+      ]
+    },
+    {
+      "stage": "motion",
+      "goal": "Animate keyframes into short scene clips.",
+      "plugins": [
+        "AnimateDiff Evolved",
+        "WanVideoWrapper",
+        "Video Helper Suite"
+      ],
+      "outputs": [
+        "raw video clips",
+        "image sequences"
+      ]
+    },
+    {
+      "stage": "finishing",
+      "goal": "Smooth, assemble, upscale, and export platform-ready vertical video.",
+      "plugins": [
+        "Frame Interpolation",
+        "Video Helper Suite"
+      ],
+      "outputs": [
+        "24/30/60 fps scene clips",
+        "final mp4 assets"
+      ]
+    }
+  ],
+  "negative_prompt": "low quality, bad anatomy, inconsistent face, extra fingers, distorted hands, watermark, text artifacts, logo, blurry, overexposed, underexposed",
+  "prompt_template": "{character}, {scene_action}, vertical 9:16 cinematic short drama frame, {genre} tone, consistent face, expressive acting, realistic lighting, film still, high detail, commercial drama poster quality"
+}

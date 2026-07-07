@@ -1,0 +1,37 @@
+{
+  "title": "午夜零点的告白",
+  "format": "anime vertical short drama",
+  "model": "Counterfeit-V3.0_fix_fp16.safetensors",
+  "logline": "雨夜东京，能听见未来倒计时的高中少女，必须在零点前阻止一场会让全校遗忘她的告白。",
+  "characters": [
+    {
+      "name": "星野澪",
+      "role": "女主",
+      "look": "black long hair, blue eyes, black sailor uniform, red ribbon",
+      "personality": "quiet, brave, emotionally restrained"
+    },
+    {
+      "name": "神代莲",
+      "role": "男主",
+      "look": "silver hair, school blazer, calm expression",
+      "personality": "gentle, mysterious, hiding a secret"
+    }
+  ],
+  "scenes": [
+    {
+      "scene": 1,
+      "title": "雨夜来信",
+      "subtitle": "澪在雨夜收到一封来自未来的短信：零点前，不要让莲说出那句话。"
+    },
+    {
+      "scene": 2,
+      "title": "神社倒计时",
+      "subtitle": "神社铃声响起，澪看见全校记忆正在像雨水一样褪色。"
+    },
+    {
+      "scene": 3,
+      "title": "天台告白",
+      "subtitle": "零点前十秒，莲终于开口。澪选择握住他的手，改写结局。"
+    }
+  ]
+}
