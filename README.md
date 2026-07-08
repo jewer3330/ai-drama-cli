@@ -46,10 +46,20 @@ Generate a cyberpunk package:
 drama anime make --style cyberpunk --output anime_cyberpunk
 ```
 
+Generate a true image-to-video production package:
+
+```powershell
+drama anime make --style rainy --output anime_i2v_wan --motion i2v --video-model wan --width 512 --height 768
+```
+
+Use `--video-model ltx` for a lighter LTX-Video-style pass. The I2V mode writes
+scene keyframes plus `i2v_plan_*.json`, per-scene I2V blueprints, and a shotlist.
+Install the matching ComfyUI video nodes/models before queueing the I2V pass.
+
 Only write workflow files for another machine:
 
 ```powershell
-drama anime make --style xianxia --output anime_xianxia --dry-run --no-render
+drama anime make --style xianxia --output anime_xianxia --dry-run --motion i2v --video-model wan
 ```
 
 Available styles:
@@ -59,6 +69,12 @@ Available styles:
 - `xianxia`: Chinese fantasy anime.
 - `shoujo`: soft romance anime.
 - `dark`: gothic mystery anime.
+
+Motion modes:
+
+- `fake`: fast ffmpeg push/zoom cut from three generated keyframes.
+- `i2v`: true video-model production package for Wan/LTX-style image-to-video.
+- `none`: keyframes and metadata only.
 
 List the recommended stack:
 

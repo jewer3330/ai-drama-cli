@@ -34,6 +34,17 @@ class AnimeStyle:
     story_hook: str
 
 
+@dataclass(frozen=True)
+class VideoModelPreset:
+    slug: str
+    title: str
+    engine: str
+    target_resolution: str
+    required_plugins: tuple[str, ...]
+    model_notes: tuple[str, ...]
+    motion_style: str
+
+
 STYLES: dict[str, AnimeStyle] = {
     "rainy": AnimeStyle(
         slug="rainy",
@@ -84,6 +95,50 @@ STYLES: dict[str, AnimeStyle] = {
         ),
         color_grade="eq=contrast=1.20:saturation=0.95",
         story_hook="At midnight, every mirror shows a different ending.",
+    ),
+}
+
+
+VIDEO_MODELS: dict[str, VideoModelPreset] = {
+    "wan": VideoModelPreset(
+        slug="wan",
+        title="Wan image-to-video",
+        engine="WanVideoWrapper / Wan2.1-style I2V",
+        target_resolution="480p vertical first, then upscale",
+        required_plugins=(
+            "ComfyUI-WanVideoWrapper",
+            "ComfyUI-VideoHelperSuite",
+            "ComfyUI-Frame-Interpolation",
+        ),
+        model_notes=(
+            "Use a Wan I2V checkpoint that matches your ComfyUI wrapper version.",
+            "Start with 480p vertical, short clips, and fixed character keyframes.",
+            "Keep the first frame strong; I2V quality follows the input frame.",
+        ),
+        motion_style=(
+            "cinematic micro-motion, slow push-in, subtle hair and clothing movement, "
+            "rain/light particles, controlled face consistency"
+        ),
+    ),
+    "ltx": VideoModelPreset(
+        slug="ltx",
+        title="LTX-Video image-to-video",
+        engine="LTX-Video I2V",
+        target_resolution="low/medium vertical test pass",
+        required_plugins=(
+            "LTX-Video ComfyUI workflow support",
+            "ComfyUI-VideoHelperSuite",
+            "ComfyUI-Frame-Interpolation",
+        ),
+        model_notes=(
+            "Good first target for lighter local tests and Apple Silicon experiments.",
+            "Use short clips and keep prompts direct; avoid too many simultaneous actions.",
+            "Upscale and interpolate after the base I2V pass looks stable.",
+        ),
+        motion_style=(
+            "smooth anime camera move, subtle expression change, environmental motion, "
+            "stable character identity, no fast body movement"
+        ),
     ),
 }
 
@@ -211,6 +266,130 @@ def _write_subtitles(path: Path, scenes: tuple[dict[str, str], ...]) -> None:
     path.write_text("\n".join(blocks), encoding="utf-8")
 
 
+def _scene_motion_prompt(scene: dict[str, str], style: AnimeStyle, index: int, preset: VideoModelPreset) -> str:
+    camera = (
+        "opening hook shot, slow handheld push-in"
+        if index == 1
+        else "medium dramatic parallax shot"
+        if index == 2
+        else "emotional close-up with a gentle reveal"
+    )
+    return (
+        f"{scene['action']}, {style.prompt_tags}, {camera}, {preset.motion_style}, "
+        "vertical short drama, Douyin-style pacing, clear subject, readable emotion, "
+        "no scene cut, no identity change, no extra characters"
+    )
+
+
+def _write_i2v_package(
+    *,
+    output_dir: Path,
+    scenes: tuple[dict[str, str], ...],
+    style: AnimeStyle,
+    preset: VideoModelPreset,
+    width: int,
+    height: int,
+    frames: int,
+    fps: int,
+    seed: int,
+) -> list[Path]:
+    paths: list[Path] = []
+    scene_specs = []
+    for index, scene in enumerate(scenes, start=1):
+        prompt = _scene_motion_prompt(scene, style, index, preset)
+        spec = {
+            "scene": index,
+            "title": scene["title"],
+            "source_image": f"scene{index:02d}.png",
+            "target_clip": f"scene{index:02d}_{preset.slug}_i2v.mp4",
+            "prompt": prompt,
+            "negative_prompt": NEGATIVE_PROMPT + ", flicker, morphing face, sudden cut, camera shake, duplicate body",
+            "width": width,
+            "height": height,
+            "frames": frames,
+            "fps": fps,
+            "seed": seed + 1000 + index,
+            "strength": 0.72,
+            "motion_bucket": "low-to-medium",
+            "camera": "slow push, parallax, character micro-expression",
+        }
+        scene_specs.append(spec)
+        blueprint = {
+            "type": "comfyui_i2v_blueprint",
+            "status": "blueprint_only_node_names_vary_by_plugin_version",
+            "video_model": preset.slug,
+            "engine": preset.engine,
+            "required_plugins": preset.required_plugins,
+            "inputs": spec,
+            "suggested_graph": [
+                "LoadImage(source_image)",
+                f"Load {preset.title} model",
+                "Encode positive/negative motion prompts",
+                "Image-to-video sampler",
+                "VideoHelperSuite combine/export",
+                "Optional frame interpolation",
+            ],
+        }
+        path = output_dir / f"i2v_scene_{index:02d}_{preset.slug}_blueprint.json"
+        path.write_text(json.dumps(blueprint, indent=2, ensure_ascii=False), encoding="utf-8")
+        paths.append(path)
+
+    plan = {
+        "name": "anime_short_drama_i2v_plan",
+        "version": "1.0",
+        "style": style.slug,
+        "video_model": preset.slug,
+        "engine": preset.engine,
+        "target_resolution": preset.target_resolution,
+        "required_plugins": preset.required_plugins,
+        "model_notes": preset.model_notes,
+        "production_recipe": [
+            "Generate strong vertical keyframes first.",
+            "Animate each keyframe as a short I2V clip.",
+            "Keep motion restrained: face, hair, light, rain, and slow camera movement.",
+            "Assemble clips with subtitles, music, sound effects, and a cliffhanger ending.",
+            "Only upscale/interpolate after identity and motion are stable.",
+        ],
+        "scenes": scene_specs,
+    }
+    plan_path = output_dir / f"i2v_plan_{preset.slug}.json"
+    plan_path.write_text(json.dumps(plan, indent=2, ensure_ascii=False), encoding="utf-8")
+    paths.insert(0, plan_path)
+
+    shotlist_lines = [
+        f"# {style.title} I2V Shotlist",
+        "",
+        f"Video model: {preset.title}",
+        f"Engine: {preset.engine}",
+        f"Target: {width}x{height}, {frames} frames, {fps} fps",
+        "",
+        "## Production Rules",
+        "",
+        "- Start from the generated scene PNGs; do not ask the video model to invent the cast.",
+        "- Use short clips with restrained movement, then cut fast in editing.",
+        "- Keep subtitles large and readable for vertical mobile playback.",
+        "- End the package with a question, reveal, or danger beat.",
+        "",
+        "## Scenes",
+        "",
+    ]
+    for spec in scene_specs:
+        shotlist_lines.extend(
+            [
+                f"### Scene {spec['scene']}: {spec['title']}",
+                "",
+                f"- Source: `{spec['source_image']}`",
+                f"- Target: `{spec['target_clip']}`",
+                f"- Prompt: {spec['prompt']}",
+                "",
+            ]
+        )
+    shotlist_path = output_dir / f"i2v_shotlist_{preset.slug}.md"
+    shotlist_path.write_text("\n".join(shotlist_lines), encoding="utf-8")
+    paths.append(shotlist_path)
+    return paths
+
+
 def _render_motion(output_dir: Path, output_name: str, style: AnimeStyle) -> Path:
     if not shutil.which("ffmpeg.exe") and not shutil.which("ffmpeg"):
         raise RuntimeError("ffmpeg is required to render the motion video.")
@@ -292,6 +471,12 @@ def make_anime_drama(
     height: int = typer.Option(640, "--height", help="Latent height"),
     steps: int = typer.Option(6, "--steps", help="Sampler steps"),
     seed: int = typer.Option(26070700, "--seed", help="Base seed"),
+    motion: str = typer.Option("fake", "--motion", help="fake/i2v/none"),
+    video_model: str = typer.Option("wan", "--video-model", help="wan/ltx for --motion i2v"),
+    video_width: int = typer.Option(480, "--video-width", help="I2V target width"),
+    video_height: int = typer.Option(832, "--video-height", help="I2V target height"),
+    video_frames: int = typer.Option(81, "--video-frames", help="I2V frame count"),
+    video_fps: int = typer.Option(16, "--video-fps", help="I2V frames per second"),
     render: bool = typer.Option(True, "--render/--no-render", help="Render motion MP4 after keyframes"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Only write story/workflow files"),
 ):
@@ -300,6 +485,15 @@ def make_anime_drama(
     if not style:
         console.print(f"[red]Unknown style:[/red] {style_name}")
         console.print("Run [cyan]drama anime styles[/cyan] to see options.")
+        raise typer.Exit(1)
+    if motion not in {"fake", "i2v", "none"}:
+        console.print(f"[red]Unknown motion mode:[/red] {motion}")
+        console.print("Use [cyan]fake[/cyan], [cyan]i2v[/cyan], or [cyan]none[/cyan].")
+        raise typer.Exit(1)
+    i2v_preset = VIDEO_MODELS.get(video_model)
+    if motion == "i2v" and not i2v_preset:
+        console.print(f"[red]Unknown video model:[/red] {video_model}")
+        console.print("Use [cyan]wan[/cyan] or [cyan]ltx[/cyan].")
         raise typer.Exit(1)
 
     output.mkdir(parents=True, exist_ok=True)
@@ -337,10 +531,28 @@ def make_anime_drama(
         workflow_path.write_text(json.dumps(workflow, indent=2, ensure_ascii=False), encoding="utf-8")
         workflows.append(workflow_path)
 
+    i2v_paths: list[Path] = []
+    if motion == "i2v" and i2v_preset:
+        i2v_paths = _write_i2v_package(
+            output_dir=output,
+            scenes=scenes,
+            style=style,
+            preset=i2v_preset,
+            width=video_width,
+            height=video_height,
+            frames=video_frames,
+            fps=video_fps,
+            seed=seed,
+        )
+
     if dry_run:
         console.print("[green]Wrote story and ComfyUI workflow files:[/green]")
         for workflow_path in workflows:
             console.print(f"  {workflow_path}")
+        if i2v_paths:
+            console.print("[green]Wrote I2V production files:[/green]")
+            for i2v_path in i2v_paths:
+                console.print(f"  {i2v_path}")
         return
 
     try:
@@ -376,12 +588,27 @@ def make_anime_drama(
                     break
             time.sleep(5)
 
-    if render:
+    if motion == "i2v":
+        console.print("[bold green]I2V production package ready:[/bold green]")
+        for i2v_path in i2v_paths:
+            console.print(f"  {i2v_path}")
+        console.print(
+            Panel.fit(
+                "Open the generated I2V blueprints in ComfyUI after installing the matching "
+                f"{i2v_preset.title if i2v_preset else video_model} nodes/models. Use the scene PNGs "
+                "as first-frame references.",
+                title="True video-model pass",
+                border_style="cyan",
+            )
+        )
+    elif motion == "fake" and render:
         try:
             video = _render_motion(output, f"{style.slug}_anime_drama_motion.mp4", style)
             console.print(f"[bold green]Motion cut rendered:[/bold green] {video}")
         except RuntimeError as exc:
             console.print(f"[red]Render failed:[/red] {exc}")
             raise typer.Exit(1)
+    elif motion == "none" or not render:
+        console.print("[yellow]Motion render skipped.[/yellow]")
 
     console.print("[green]Anime drama package ready.[/green]")

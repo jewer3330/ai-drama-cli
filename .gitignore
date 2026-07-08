@@ -27,6 +27,8 @@ douyin_test_output/
 anime_random_cyberpunk/
 anime_style_cyberpunk/
 anime_style_dark_test/
+anime_lowres_test/
+anime_i2v_*/
 
 *.mp4
 *.mp3
