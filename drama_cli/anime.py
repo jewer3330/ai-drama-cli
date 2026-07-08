@@ -212,7 +212,13 @@ def _write_subtitles(path: Path, scenes: tuple[dict[str, str], ...]) -> None:
 
 
 def _render_motion(output_dir: Path, output_name: str, style: AnimeStyle) -> Path:
-    if not shutil.which("ffmpeg.exe") and not shutil.which("ffmpeg"):
+    local_ffmpeg = Path("tools/ffmpeg/ffmpeg.exe")
+    ffmpeg_bin = (
+        shutil.which("ffmpeg.exe")
+        or shutil.which("ffmpeg")
+        or (str(local_ffmpeg.resolve()) if local_ffmpeg.exists() else "")
+    )
+    if not ffmpeg_bin:
         raise RuntimeError("ffmpeg is required to render the motion video.")
 
     output = output_dir / output_name
@@ -233,7 +239,7 @@ def _render_motion(output_dir: Path, output_name: str, style: AnimeStyle) -> Pat
         "OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginV=120'[v]"
     )
     cmd = [
-        "ffmpeg.exe" if shutil.which("ffmpeg.exe") else "ffmpeg",
+        ffmpeg_bin,
         "-y",
         "-loop",
         "1",
