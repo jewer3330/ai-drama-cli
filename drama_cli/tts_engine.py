@@ -47,12 +47,19 @@ class TTSEngine:
             api_key=self.config.ai_api_key,
             base_url=self.config.ai_base_url
         )
-        response = client.audio.speech.create(
-            model="tts-1",
-            voice=voice if voice in ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] else "nova",
-            input=text,
-            speed=speed
-        )
+        supported_voices = [
+            "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx",
+            "nova", "sage", "shimmer", "verse", "marin", "cedar",
+        ]
+        kwargs = {
+            "model": self.config.tts_model,
+            "voice": voice if voice in supported_voices else "marin",
+            "input": text,
+            "speed": speed,
+        }
+        if not self.config.tts_model.startswith("tts-1"):
+            kwargs["instructions"] = self.config.tts_instructions
+        response = client.audio.speech.create(**kwargs)
         response.stream_to_file(str(output_path))
 
     def generate_line(self, text: str, voice: str, output_path: Path,

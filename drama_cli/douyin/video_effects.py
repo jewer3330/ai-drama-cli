@@ -397,7 +397,8 @@ class VideoEffects:
     @staticmethod
     def generate_intro(title: str, genre: str, output_path: Path,
                        width: int = 1080, height: int = 1920,
-                       duration: float = 3.0):
+                       duration: float = 3.0, hook_text: str = "",
+                       subline: str = ""):
         """生成片头动画"""
         from PIL import Image, ImageDraw, ImageFont
 
@@ -405,8 +406,11 @@ class VideoEffects:
         temp_dir = output_path.parent / "intro_frames"
         temp_dir.mkdir(exist_ok=True)
 
-        font_title = VideoEffects._get_bold_font(64)
+        main_text = hook_text or title
+        main_size = max(40, min(68, 900 // max(len(main_text), 1)))
+        font_title = VideoEffects._get_bold_font(main_size)
         font_genre = VideoEffects._get_font(32)
+        font_label = VideoEffects._get_bold_font(28)
 
         for i in range(frames):
             progress = i / frames
@@ -423,16 +427,21 @@ class VideoEffects:
                 alpha = int(100 * ease * random.random())
                 draw.ellipse([px, py, px + 2, py + 2], fill=(alpha, alpha, alpha + 50))
 
-            # 标题淡入
+            # 三秒内先给钩子，再给剧名/类型信息。
             alpha = int(255 * min(progress * 3, 1))
             draw.text((width // 2, int(height // 2 - 60 * (1 - ease))),
-                      title, fill=(alpha, alpha // 2, 0), font=font_title, anchor="mm")
+                      main_text, fill=(alpha, alpha // 2, 0), font=font_title, anchor="mm",
+                      stroke_width=2, stroke_fill=(0, 0, 0))
+
+            if hook_text:
+                draw.text((width // 2, height // 2 - 130), title,
+                          fill=(alpha, alpha, alpha), font=font_label, anchor="mm")
 
             # 类型
             if progress > 0.3:
                 genre_alpha = int(255 * min((progress - 0.3) * 3, 1))
                 draw.text((width // 2, height // 2 + 60),
-                          genre, fill=(genre_alpha, genre_alpha, genre_alpha),
+                          subline or genre, fill=(genre_alpha, genre_alpha, genre_alpha),
                           font=font_genre, anchor="mm")
 
             frame_path = temp_dir / f"frame_{i:04d}.png"
@@ -456,7 +465,7 @@ class VideoEffects:
 
     @staticmethod
     def generate_outro(output_path: Path, width: int = 1080, height: int = 1920,
-                       duration: float = 2.0):
+                       duration: float = 2.0, cta_text: str = ""):
         """生成片尾"""
         from PIL import Image, ImageDraw, ImageFont
 
@@ -475,7 +484,7 @@ class VideoEffects:
             draw = ImageDraw.Draw(img)
 
             draw.text((width // 2, height // 2 - 40),
-                      "感谢观看", fill=(alpha, alpha, alpha), font=font, anchor="mm")
+                      cta_text or "感谢观看", fill=(alpha, alpha, alpha), font=font, anchor="mm")
             draw.text((width // 2, height // 2 + 30),
                       "DramaCLI Pro · AI短剧工厂", fill=(alpha // 2, alpha // 2, alpha // 2),
                       font=font_sm, anchor="mm")

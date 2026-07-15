@@ -2,22 +2,32 @@
 
 import json
 import subprocess
-import os
+import re
 import shutil
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Optional
 from datetime import datetime
 
 from .image_gen import ImageGenerator
 from .bgm_engine import BGMEngine
 from .video_effects import VideoEffects
-from .templates import DramaTemplate, get_template, get_visual_config, build_prompt
+from .templates import get_template, get_visual_config
+from .ai_video import AIVideoError, SoraVideoGenerator, build_motion_prompt
+from .viral import ViralPackage, build_viral_package
+from ..config import DramaConfig
+from ..tts_engine import TTSEngine
 
 
-FFMPEG = r"C:\Users\D0901\AppData\Roaming\TRAE SOLO CN\ModularData\ai-agent\vm\tools\app\ffmpeg\ffmpeg.exe"
-if not Path(FFMPEG).exists():
-    FFMPEG = "ffmpeg"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOCAL_FFMPEG_CANDIDATES = (
+    PROJECT_ROOT / "tools" / "ffmpeg" / "ffmpeg.exe",
+    PROJECT_ROOT / "tools" / "ffmpeg" / "ffmpeg",
+)
+FFMPEG = next(
+    (str(candidate) for candidate in LOCAL_FFMPEG_CANDIDATES if candidate.exists()),
+    shutil.which("ffmpeg") or "ffmpeg",
+)
 
 
 @dataclass
@@ -28,10 +38,21 @@ class PipelineConfig:
     topic: str = ""
     episodes: int = 3
     style: str = "爽文"
+    mode: str = "pro"
     # AI 配置
     ai_api_key: str = ""
     ai_base_url: str = "https://api.openai.com/v1"
     ai_model: str = "gpt-4o"
+    image_model: str = "gpt-image-1"
+    image_quality: str = "high"
+    video_engine: str = "auto"
+    video_model: str = "sora-2-pro"
+    video_poll_interval: float = 5.0
+    video_timeout: float = 900.0
+    tts_engine: str = "edge"
+    tts_model: str = "gpt-4o-mini-tts"
+    tts_voice: str = "zh-CN-XiaoxiaoNeural"
+    tts_speed: float = 1.0
     # 视频配置
     width: int = 1080
     height: int = 1920
@@ -43,6 +64,7 @@ class PipelineConfig:
     enable_intro: bool = True
     enable_outro: bool = True
     enable_transitions: bool = True
+    enable_viral_packaging: bool = True
     color_preset: str = "cinematic"
     bgm_volume: float = 0.25
     # 输出
@@ -57,9 +79,18 @@ class DouyinPipeline:
         self.ffmpeg = ffmpeg_path or FFMPEG
         VideoEffects.FFMPEG = self.ffmpeg
         ffmpeg_path_obj = Path(self.ffmpeg)
-        ffprobe_path = ffmpeg_path_obj.parent / "ffprobe.exe"
-        VideoEffects.FFPROBE = str(ffprobe_path)
-        self.image_gen = ImageGenerator(config.ai_api_key, config.ai_base_url)
+        ffprobe_name = "ffprobe.exe" if ffmpeg_path_obj.suffix.lower() == ".exe" else "ffprobe"
+        ffprobe_path = ffmpeg_path_obj.parent / ffprobe_name
+        VideoEffects.FFPROBE = (
+            str(ffprobe_path) if ffprobe_path.exists() else shutil.which("ffprobe") or ffprobe_name
+        )
+        self.image_gen = ImageGenerator(
+            config.ai_api_key,
+            config.ai_base_url,
+            image_model=config.image_model,
+            image_quality=config.image_quality,
+            prefer_paid=config.mode == "pro",
+        )
         self.bgm_engine = BGMEngine(self.ffmpeg)
         self.effects = VideoEffects()
         self.template = get_template(config.template_name)
@@ -68,6 +99,7 @@ class DouyinPipeline:
         self.script = None
         self.audio_data = None
         self.video_outputs = []
+        self.viral: Optional[ViralPackage] = None
 
     def set_script(self, script: dict):
         """直接设置剧本（跳过AI生成）"""
@@ -93,6 +125,14 @@ class DouyinPipeline:
             "color_palette": "#1a1a2e,#e94560",
             "bgm_mood": "romantic_intense",
         }
+        if config.enable_viral_packaging:
+            self.viral = build_viral_package(self.script, self.template)
+
+        if config.mode == "pro" and config.video_engine in {"auto", "sora"}:
+            if config.ai_api_key:
+                print(f"  🚀 Pro 视频模型: {config.video_model}")
+            else:
+                print("  ⚠️ 未配置 AI API key，视频运动将自动回退到电影感运镜")
 
         # 1. 生成封面
         print("[1/6] 生成封面图...")
@@ -102,7 +142,12 @@ class DouyinPipeline:
             self.script.get("genre", ""),
             visual["visual_style"],
             visual["color_palette"],
-            cover_path
+            cover_path,
+            width=config.width,
+            height=config.height,
+            headline=self.viral.cover_headline if self.viral else "",
+            subhead=self.viral.cover_subhead if self.viral else "",
+            hook_text="高能反转" if self.viral else "",
         )
         print(f"  ✅ 封面: {cover_path}")
 
@@ -168,19 +213,26 @@ class DouyinPipeline:
                     visual.get("color_palette", "#1a1a2e,#e94560"),
                     scene_key=key
                 )
+                if self.config.enable_color_grade and img_path.exists():
+                    graded_path = images_dir / f"{key}_graded.png"
+                    self.effects.color_grade(img_path, graded_path, self.config.color_preset)
+                    if graded_path.exists() and graded_path.stat().st_size > 0:
+                        graded_path.replace(img_path)
                 scene_images[key] = img_path
 
         return scene_images
 
     def _generate_audio(self) -> dict:
-        """生成语音 - 优先使用已有音频，避免重复生成"""
+        """生成语音，优先复用缓存，没有缓存时调用配置的神经语音。"""
         audio_dir = self.config.output_dir / "audio"
+        audio_dir.mkdir(parents=True, exist_ok=True)
 
-        # 尝试复用已有音频
-        existing_audio = Path("audio")  # 项目根目录下的 audio/
-        if existing_audio.exists():
-            print("  📂 检测到已有音频，复用中...")
+        # 先检查当前项目缓存，再兼容项目根目录下的旧 audio/。
+        for existing_audio in (audio_dir, Path("audio")):
+            if not existing_audio.exists():
+                continue
             result = {"episodes": []}
+            reused = 0
             for ep in self.script.get("episodes", []):
                 ep_num = ep["episode_number"]
                 ep_data = {"episode_number": ep_num, "scenes": []}
@@ -193,15 +245,37 @@ class DouyinPipeline:
                     if src_dir.exists():
                         for f in sorted(src_dir.glob("line_*.mp3")):
                             dst = dst_dir / f.name
-                            if not dst.exists():
-                                import shutil
+                            if f.resolve() != dst.resolve() and not dst.exists():
                                 shutil.copy2(f, dst)
                             sc_data["audio_files"].append(str(dst))
+                            reused += 1
                     ep_data["scenes"].append(sc_data)
                 result["episodes"].append(ep_data)
-            return result
+            if reused:
+                print(f"  📂 复用 {reused} 条已有语音")
+                return result
 
-        return result
+        tts_config = DramaConfig(
+            ai_api_key=self.config.ai_api_key,
+            ai_base_url=self.config.ai_base_url,
+            ai_model=self.config.ai_model,
+            tts_engine=self.config.tts_engine,
+            tts_model=self.config.tts_model,
+            tts_voice=self.config.tts_voice,
+            tts_speed=self.config.tts_speed,
+        )
+        return TTSEngine(tts_config).generate_full_audio(self.script, audio_dir)
+
+    def _media_duration(self, media_path: Path) -> float:
+        result = subprocess.run(
+            [self.ffmpeg, "-hide_banner", "-i", str(media_path)],
+            capture_output=True,
+            text=True,
+        )
+        match = re.search(r"Duration: (\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)", result.stderr)
+        if not match:
+            return 3.0
+        return int(match.group(1)) * 3600 + int(match.group(2)) * 60 + float(match.group(3))
 
     def _generate_bgm(self, visual: dict) -> Optional[Path]:
         """生成BGM"""
@@ -216,14 +290,7 @@ class DouyinPipeline:
             for sc_data in ep_data.get("scenes", []):
                 for af in sc_data.get("audio_files", []):
                     if Path(af).exists():
-                        r = subprocess.run([
-                            "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                            "-of", "default=noprint_wrappers=1:nokey=1", af
-                        ], capture_output=True, text=True)
-                        try:
-                            total_dur += float(r.stdout.strip())
-                        except:
-                            total_dur += 3
+                        total_dur += self._media_duration(Path(af))
                         total_dur += 0.3
 
         total_dur = max(total_dur, 30)
@@ -238,6 +305,17 @@ class DouyinPipeline:
         video_dir = self.config.output_dir / "videos"
         video_dir.mkdir(exist_ok=True)
         scene_videos = []
+        engine = self.config.video_engine.lower().replace("_", "-")
+        use_sora = engine == "sora" or (engine == "auto" and self.config.mode == "pro")
+        sora = None
+        if use_sora and self.config.ai_api_key:
+            sora = SoraVideoGenerator(
+                self.config.ai_api_key,
+                self.config.ai_base_url,
+                model=self.config.video_model,
+                poll_interval=self.config.video_poll_interval,
+                timeout=self.config.video_timeout,
+            )
 
         for ep_data in self.audio_data.get("episodes", []):
             ep_num = ep_data["episode_number"]
@@ -268,13 +346,34 @@ class DouyinPipeline:
                 else:
                     final_audio = merged_audio
 
-                # 渲染视频
-                if self.config.enable_ken_burns:
+                rendered_with_ai = False
+                if sora:
+                    ai_dir = self.config.output_dir / "ai_video"
+                    ai_dir.mkdir(exist_ok=True)
+                    raw_clip = ai_dir / f"{key}_{self.config.video_model}.mp4"
+                    try:
+                        duration = self._media_duration(final_audio)
+                        sora.generate(
+                            build_motion_prompt(scene, visual.get("visual_style", "cinematic")),
+                            raw_clip,
+                            reference_image=bg_path,
+                            seconds=SoraVideoGenerator.seconds_for_duration(duration),
+                            size="720x1280",
+                        )
+                        self._mux_ai_clip(raw_clip, final_audio, out_path)
+                        rendered_with_ai = out_path.exists() and out_path.stat().st_size > 0
+                        print(f"  ✨ {key} · {self.config.video_model}")
+                    except (AIVideoError, OSError, ValueError) as exc:
+                        print(f"  ⚠️ {key} AI 视频失败，回退电影感运镜: {exc}")
+
+                # 无云端视频或调用失败时使用稳定的本地电影感运镜。
+                if not rendered_with_ai and self.config.enable_ken_burns:
                     self.effects.ken_burns_effect(
                         bg_path, final_audio, out_path,
-                        self.config.width, self.config.height
+                        self.config.width, self.config.height,
+                        duration=self._media_duration(final_audio),
                     )
-                else:
+                elif not rendered_with_ai:
                     self.effects.add_animated_subtitles(
                         bg_path, final_audio, scene.get("dialogues", []),
                         out_path, self.config.width, self.config.height
@@ -284,6 +383,24 @@ class DouyinPipeline:
                 print(f"  🎬 {key}")
 
         return scene_videos
+
+    def _mux_ai_clip(self, clip_path: Path, audio_path: Path, output_path: Path):
+        """Replace generated audio and loop the visual only when dialogue runs longer."""
+        filter_video = (
+            f"scale={self.config.width}:{self.config.height}:force_original_aspect_ratio=increase,"
+            f"crop={self.config.width}:{self.config.height},fps={self.config.fps},format=yuv420p"
+        )
+        result = subprocess.run([
+            self.ffmpeg, "-y", "-stream_loop", "-1", "-i", str(clip_path),
+            "-i", str(audio_path), "-vf", filter_video,
+            "-map", "0:v:0", "-map", "1:a:0", "-shortest",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
+            str(output_path),
+        ], capture_output=True)
+        if result.returncode != 0:
+            error = result.stderr.decode(errors="ignore")[-800:]
+            raise AIVideoError(f"FFmpeg could not package AI video: {error}")
 
     def _merge_audio(self, audio_files: list[Path], output_path: Path):
         """合并音频文件"""
@@ -323,13 +440,22 @@ class DouyinPipeline:
             self.effects.generate_intro(
                 self.script.get("title", "短剧"),
                 self.script.get("genre", ""),
-                intro_path
+                intro_path,
+                width=self.config.width,
+                height=self.config.height,
+                hook_text=self.viral.opening_hook if self.viral else "",
+                subline=self.viral.cover_subhead if self.viral else "",
             )
 
         # 生成片尾
         outro_path = output_dir / "outro.mp4"
         if self.config.enable_outro:
-            self.effects.generate_outro(outro_path)
+            self.effects.generate_outro(
+                outro_path,
+                width=self.config.width,
+                height=self.config.height,
+                cta_text=self.viral.outro_cta if self.viral else "",
+            )
 
         # 合并所有
         all_videos = []
@@ -358,12 +484,27 @@ class DouyinPipeline:
     def export_douyin_package(self) -> dict:
         """导出抖音发布包"""
         output_dir = self.config.output_dir
+        if self.config.enable_viral_packaging and not self.viral:
+            self.viral = build_viral_package(self.script, self.template)
+        viral_data = asdict(self.viral) if self.viral else {}
         package = {
-            "title": self.script.get("title", ""),
+            "title": self.viral.publish_title if self.viral else self.script.get("title", ""),
+            "original_title": self.script.get("title", ""),
             "genre": self.script.get("genre", ""),
             "description": self.script.get("description", ""),
+            "caption": self.viral.caption if self.viral else self.script.get("description", ""),
             "episodes": len(self.script.get("episodes", [])),
-            "tags": self.template.tags if self.template else [],
+            "tags": self.viral.hashtags if self.viral else (self.template.tags if self.template else []),
+            "viral": viral_data,
+            "ai": {
+                "mode": self.config.mode,
+                "script_model": self.config.ai_model,
+                "image_model": self.config.image_model,
+                "video_engine": self.config.video_engine,
+                "video_model": self.config.video_model,
+                "tts_engine": self.config.tts_engine,
+                "tts_model": self.config.tts_model,
+            },
             "video": str(output_dir / "final_douyin.mp4"),
             "cover": str(output_dir / "cover.png"),
             "script": str(output_dir / "script.json"),
@@ -381,5 +522,11 @@ class DouyinPipeline:
             json.dumps(self.script, indent=2, ensure_ascii=False),
             encoding="utf-8"
         )
+
+        if self.viral:
+            (output_dir / "publish_copy.txt").write_text(
+                f"{self.viral.publish_title}\n\n{self.viral.caption}\n",
+                encoding="utf-8",
+            )
 
         return package

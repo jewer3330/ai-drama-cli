@@ -22,8 +22,10 @@ class DramaConfig:
 
     # TTS 配置
     tts_engine: str = "edge"  # edge / openai / azure
+    tts_model: str = "gpt-4o-mini-tts"
     tts_voice: str = "zh-CN-XiaoxiaoNeural"  # 默认中文女声
     tts_speed: float = 1.0
+    tts_instructions: str = "自然、有情绪张力的中文短剧旁白，停顿清晰，不要播音腔。"
 
     # 视频配置
     video_width: int = 1080

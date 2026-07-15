@@ -11,6 +11,7 @@
   drama config                  管理配置
 """
 
+import os
 import typer
 from pathlib import Path
 from rich.console import Console
@@ -661,12 +662,24 @@ def douyin_templates():
 def douyin_produce(
     script_file: str = typer.Argument("demo_script.json", help="剧本 JSON 文件"),
     output: str = typer.Option("douyin_output", "--output", "-o", help="输出目录"),
+    mode: str = typer.Option("pro", "--mode", help="pro/fast，Pro 优先使用高质量 AI"),
+    video_engine: str = typer.Option("auto", "--video-engine", help="auto/sora/ken-burns"),
+    video_model: str = typer.Option("sora-2-pro", "--video-model", help="云端视频模型"),
 ):
     """🎬 一键生成抖音短剧 - 零参数，智能全自动"""
     import json
     from pathlib import Path
     from .douyin.pipeline import DouyinPipeline, PipelineConfig
     from .douyin.templates import get_template, list_templates
+
+    mode = mode.lower()
+    video_engine = video_engine.lower()
+    if mode not in {"pro", "fast"}:
+        console.print("[red]--mode 仅支持 pro 或 fast[/red]")
+        raise typer.Exit(2)
+    if video_engine not in {"auto", "sora", "ken-burns"}:
+        console.print("[red]--video-engine 仅支持 auto、sora 或 ken-burns[/red]")
+        raise typer.Exit(2)
 
     script_path = Path(script_file)
     if not script_path.exists():
@@ -690,12 +703,17 @@ def douyin_produce(
             template_name = val
             break
 
+    global_cfg = DramaConfig.load()
+    api_key = os.getenv("OPENAI_API_KEY", global_cfg.ai_api_key)
+    selected_video = video_model if mode == "pro" and api_key and video_engine != "ken-burns" else "电影感本地运镜"
+
     console.print(Panel.fit(
         f"[bold magenta]🎬 DramaCLI Pro[/bold magenta]\n"
         f"剧名: {script.get('title', '')}\n"
         f"类型: {genre} → 模板: {template_name}\n"
         f"集数: {len(script.get('episodes', []))}\n"
-        f"特效: 全开 (Ken Burns/BGM/调色/片头片尾/转场)",
+        f"模式: {mode} | 视频: {selected_video}\n"
+        f"特效: 爆款钩子/BGM/调色/片头片尾/转场",
         border_style="magenta"
     ))
 
@@ -704,6 +722,16 @@ def douyin_produce(
         template_name=template_name,
         topic=script.get("title", ""),
         episodes=len(script.get("episodes", [])),
+        mode=mode,
+        ai_api_key=api_key,
+        ai_base_url=global_cfg.ai_base_url,
+        ai_model=global_cfg.ai_model,
+        video_engine=video_engine,
+        video_model=video_model,
+        tts_engine=global_cfg.tts_engine,
+        tts_model=global_cfg.tts_model,
+        tts_voice=global_cfg.tts_voice,
+        tts_speed=global_cfg.tts_speed,
         output_dir=Path(output) / script.get("title", "drama")[:20],
     )
 

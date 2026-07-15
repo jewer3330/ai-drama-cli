@@ -1,5 +1,7 @@
 """AI场景图生成引擎 - 支持 Pollinations免费 / AI场景图 / 角色合成 / 程序化生成"""
 
+import base64
+import io
 import json
 import subprocess
 import urllib.parse
@@ -8,10 +10,33 @@ import ssl
 from pathlib import Path
 from typing import Optional
 from openai import OpenAI
-from PIL import Image, ImageDraw, ImageFilter, ImageEnhance, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageEnhance, ImageFont, ImageOps
 import colorsys
 import random
 import os
+
+
+_FONT_CANDIDATES = [
+    "C:/Windows/Fonts/msyh.ttc",
+    "/System/Library/Fonts/PingFang.ttc",
+    "/System/Library/Fonts/STHeiti Medium.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+]
+_BOLD_FONT_CANDIDATES = [
+    "C:/Windows/Fonts/msyhbd.ttc",
+    "/System/Library/Fonts/PingFang.ttc",
+    "/System/Library/Fonts/STHeiti Medium.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+] + _FONT_CANDIDATES
+
+
+def _load_font(size: int, bold: bool = False):
+    for candidate in _BOLD_FONT_CANDIDATES if bold else _FONT_CANDIDATES:
+        try:
+            return ImageFont.truetype(candidate, size)
+        except (OSError, IOError):
+            continue
+    return ImageFont.load_default()
 
 
 class ImageGenerator:
@@ -24,9 +49,19 @@ class ImageGenerator:
     # Pollinations.ai 免费API（无需Key）
     POLLINATIONS_URL = "https://image.pollinations.ai/prompt"
 
-    def __init__(self, api_key: str = "", base_url: str = "https://api.openai.com/v1"):
+    def __init__(
+        self,
+        api_key: str = "",
+        base_url: str = "https://api.openai.com/v1",
+        image_model: str = "gpt-image-1",
+        image_quality: str = "high",
+        prefer_paid: bool = False,
+    ):
         self.client = OpenAI(api_key=api_key or "sk-placeholder", base_url=base_url)
         self.api_key = api_key
+        self.image_model = image_model
+        self.image_quality = image_quality
+        self.prefer_paid = prefer_paid
 
     def generate_scene(
         self, scene: dict, episode_num: int, output_path: Path,
@@ -42,24 +77,34 @@ class ImageGenerator:
             if ai_scene_path:
                 return self._use_ai_scene(ai_scene_path, episode_num, width, height, output_path)
 
-        # 2. 尝试 Pollinations.ai 免费生成
+        # 2. Pro 模式优先使用高质量付费模型。
         location = scene.get("location", "")
         desc = scene.get("visual_description", "")
         time_str = scene.get("time", "")
+        if self.api_key and self.prefer_paid:
+            generated = self._ai_generate(
+                location, desc, time_str, visual_style,
+                color_palette, width, height, output_path,
+            )
+            if generated:
+                return generated
+
+        # 3. 尝试 Pollinations.ai 免费生成
         if self._pollinations_generate(location, desc, time_str, width, height, output_path):
             return output_path
 
-        # 3. 付费API生成（需要API key）
-        location = scene.get("location", "")
-        desc = scene.get("visual_description", "")
-        time_str = scene.get("time", "")
-
+        # 4. 免费接口失败后再尝试付费 API。
         if self.api_key:
-            return self._ai_generate(location, desc, time_str, visual_style,
-                                     color_palette, width, height, output_path)
-        else:
-            return self._procedural_generate(scene, episode_num, visual_style,
-                                             color_palette, width, height, output_path)
+            generated = self._ai_generate(
+                location, desc, time_str, visual_style,
+                color_palette, width, height, output_path,
+            )
+            if generated:
+                return generated
+        return self._procedural_generate(
+            scene, episode_num, visual_style,
+            color_palette, width, height, output_path,
+        )
 
     def _find_ai_scene(self, scene_key: str) -> Optional[Path]:
         """查找AI预生成的场景图"""
@@ -78,11 +123,8 @@ class ImageGenerator:
         img = img.resize((width, height), Image.LANCZOS)
         img = img.convert("RGBA")
         draw = ImageDraw.Draw(img)
-        try:
-            font_md = ImageFont.truetype("C:/Windows/Fonts/msyhbd.ttc", 36)
-            font_sm = ImageFont.truetype("C:/Windows/Fonts/msyh.ttc", 28)
-        except:
-            font_md = font_sm = ImageFont.load_default()
+        font_md = _load_font(36, bold=True)
+        font_sm = _load_font(28)
         draw.rounded_rectangle([30, 30, 220, 85], radius=15, fill=(0, 0, 0, 180))
         draw.text((125, 57), f"第 {episode_num} 集", fill=(255, 215, 0), font=font_md, anchor="mm")
         draw.rounded_rectangle([width // 4, height - 100, 3 * width // 4, height - 60], radius=10, fill=(255, 215, 0, 60))
@@ -117,8 +159,8 @@ class ImageGenerator:
             return False
 
     def _ai_generate(self, location, desc, time_str, visual_style,
-                     color_palette, width, height, output_path):
-        """使用 DALL-E 生成（付费，需要API key）"""
+                     color_palette, width, height, output_path) -> Optional[Path]:
+        """使用 OpenAI GPT Image 生成高质量竖屏关键帧。"""
         colors = color_palette.split(",") if color_palette else ["#1a1a2e", "#e94560"]
         dominant = colors[0].replace("#", "")
         accent = colors[-1].replace("#", "")
@@ -133,31 +175,32 @@ class ImageGenerator:
 
         try:
             response = self.client.images.generate(
-                model="dall-e-3",
+                model=self.image_model,
                 prompt=prompt,
-                size="1024x1792",  # 竖屏比例
-                quality="standard",
+                size="1024x1536",
+                quality=self.image_quality,
                 n=1,
             )
 
-            # Download image
-            import requests
-            img_url = response.data[0].url
-            img_data = requests.get(img_url).content
+            item = response.data[0]
+            if getattr(item, "b64_json", None):
+                img_data = base64.b64decode(item.b64_json)
+            elif getattr(item, "url", None):
+                import requests
+                download = requests.get(item.url, timeout=120)
+                download.raise_for_status()
+                img_data = download.content
+            else:
+                raise RuntimeError("图像 API 未返回图片内容")
 
-            # Save and resize
-            temp_path = output_path.with_suffix(".temp.png")
-            temp_path.write_bytes(img_data)
-
-            img = Image.open(temp_path)
-            img = img.resize((width, height), Image.LANCZOS)
-            img.save(output_path)
-            temp_path.unlink()
+            img = Image.open(io.BytesIO(img_data)).convert("RGB")
+            img = ImageOps.fit(img, (width, height), method=Image.Resampling.LANCZOS)
+            img.save(output_path, quality=95)
 
             return output_path
         except Exception as e:
             print(f"  AI图像生成失败: {e}，使用程序化生成")
-            return output_path  # fallback handled by caller
+            return None
 
     def _procedural_generate(self, scene, episode_num, visual_style,
                              color_palette, width, height, output_path):
@@ -206,13 +249,10 @@ class ImageGenerator:
                          fill=(brightness, brightness, brightness))
 
         # 文字
-        try:
-            font_lg = ImageFont.truetype("C:/Windows/Fonts/msyhbd.ttc", 56)
-            font_md = ImageFont.truetype("C:/Windows/Fonts/msyhbd.ttc", 36)
-            font_sm = ImageFont.truetype("C:/Windows/Fonts/msyh.ttc", 28)
-            font_name = ImageFont.truetype("C:/Windows/Fonts/msyhbd.ttc", 28)
-        except:
-            font_lg = font_md = font_sm = font_name = ImageFont.load_default()
+        font_lg = _load_font(56, bold=True)
+        font_md = _load_font(36, bold=True)
+        font_sm = _load_font(28)
+        font_name = _load_font(28, bold=True)
 
         loc = scene.get("location", "")
         desc = scene.get("visual_description", "")[:80]
@@ -367,7 +407,9 @@ class ImageGenerator:
 
     def generate_cover(self, title: str, genre: str, visual_style: str,
                        color_palette: str, output_path: Path,
-                       width: int = 1080, height: int = 1920):
+                       width: int = 1080, height: int = 1920,
+                       headline: str = "", subhead: str = "",
+                       hook_text: str = ""):
         """生成封面图"""
         colors = color_palette.split(",") if color_palette else ["#1a1a2e", "#e94560"]
         c1 = self._hex_to_rgb(colors[0].strip())
@@ -381,16 +423,30 @@ class ImageGenerator:
             r = y / height
             draw.line([(0, y), (width, y)], self._lerp_rgb(c1, c2, r))
 
-        try:
-            font_title = ImageFont.truetype("C:/Windows/Fonts/msyhbd.ttc", 72)
-            font_genre = ImageFont.truetype("C:/Windows/Fonts/msyh.ttc", 36)
-            font_watermark = ImageFont.truetype("C:/Windows/Fonts/msyh.ttc", 24)
-        except:
-            font_title = font_genre = font_watermark = ImageFont.load_default()
+        font_title = _load_font(72, bold=True)
+        font_genre = _load_font(36)
+        font_hook = _load_font(30, bold=True)
+        font_watermark = _load_font(24)
 
-        # 标题
-        draw.text((width // 2, height // 2 - 60), title, fill=(255, 215, 0), font=font_title, anchor="mm")
-        draw.text((width // 2, height // 2 + 30), genre, fill=(255, 255, 255), font=font_genre, anchor="mm")
+        primary = headline or title
+        secondary = subhead or genre
+        if hook_text:
+            hook_box = draw.textbbox((0, 0), hook_text, font=font_hook)
+            hook_width = hook_box[2] - hook_box[0] + 54
+            hook_y = height // 2 - 235
+            draw.rounded_rectangle(
+                [width // 2 - hook_width // 2, hook_y - 30,
+                 width // 2 + hook_width // 2, hook_y + 30],
+                radius=16, fill=(218, 45, 38),
+            )
+            draw.text((width // 2, hook_y), hook_text, fill=(255, 255, 255),
+                      font=font_hook, anchor="mm")
+
+        # 爆款主标题与副标题
+        draw.text((width // 2, height // 2 - 60), primary, fill=(255, 215, 0),
+                  font=font_title, anchor="mm", stroke_width=4, stroke_fill=(10, 8, 8))
+        draw.text((width // 2, height // 2 + 35), secondary, fill=(255, 255, 255),
+                  font=font_genre, anchor="mm", stroke_width=2, stroke_fill=(10, 8, 8))
 
         # 装饰线
         draw.rectangle([width // 4, height // 2 + 80, 3 * width // 4, height // 2 + 82], fill=(255, 215, 0))
